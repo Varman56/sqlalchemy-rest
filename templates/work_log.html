@@ -4,7 +4,10 @@
 <div style="padding: 0px 100px 0px 100px;">
     <h2 align="center">Works log</h2>
     {% if current_user.is_authenticated %}
+    <div>
     <a href="addjob" class="btn btn-secondary">Add job</a>
+        <a href="departments" class="btn btn-secondary">To department list</a>
+    </div>
     {% endif %}
     {% for item in jobs %}
     <h3>Action # {{ item.id }}</h3>

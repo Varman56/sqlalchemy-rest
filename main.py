@@ -2,9 +2,11 @@ from flask import Flask, render_template, redirect, request, abort
 from data import db_session
 from data.users import User
 from data.jobs import Jobs
+from data.departments import Department
 from forms.add_user_form import RegisterForm
 from forms.login_form import LoginForm
 from forms.jobform import JobForm
+from forms.departmentform import DepartmnetForm
 from flask_login import LoginManager, login_user, logout_user, login_required, \
     current_user
 
@@ -23,6 +25,17 @@ def load_user(user_id):
 def main():
     db_session.global_init("db/blogs.db")
     app.run(port=8080, host='127.0.0.1')
+
+
+@app.route('/')
+def index():
+    session = db_session.create_session()
+    jobs = list(session.query(Jobs))
+    param = {
+        "jobs": jobs,
+        "title": 'Work log'
+    }
+    return render_template("work_log.html", **param)
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -46,6 +59,35 @@ def login():
 def logout():
     logout_user()
     return redirect("/")
+
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    form = RegisterForm()
+    if form.validate_on_submit():
+        if form.password.data != form.password_again.data:
+            return render_template('register.html', title='Регистрация',
+                                   form=form,
+                                   message="Пароли не совпадают")
+        db_sess = db_session.create_session()
+        if db_sess.query(User).filter(
+                User.email == form.username.data).first():
+            return render_template('register.html', title='Регистрация',
+                                   form=form,
+                                   message="Такой пользователь уже есть")
+        user = User()
+        user.surname = form.surname.data,
+        user.name = form.name.data,
+        user.age = form.age.data,
+        user.position = form.position.data,
+        user.speciality = form.speciality.data,
+        user.address = form.address.data,
+        user.email = form.username.data
+        user.set_password(form.password.data)
+        db_sess.add(user)
+        db_sess.commit()
+        return redirect('/register')
+    return render_template('register.html', title='Регистрация', form=form)
 
 
 @app.route('/addjob', methods=['GET', 'POST'])
@@ -116,44 +158,82 @@ def jobs_delete(id):
     return redirect('/')
 
 
-@app.route('/')
-def index():
+@app.route('/departments')
+@login_required
+def departments_log():
     session = db_session.create_session()
-    jobs = list(session.query(Jobs))
+    departments = list(session.query(Department))
     param = {
-        "jobs": jobs,
-        "title": 'Work log'
+        "departments": departments,
+        "title": 'List of departments'
     }
-    return render_template("work_log.html", **param)
+    return render_template("department_log.html", **param)
 
 
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    form = RegisterForm()
+@app.route('/adddepartment', methods=['GET', 'POST'])
+@login_required
+def add_department():
+    form = DepartmnetForm()
     if form.validate_on_submit():
-        if form.password.data != form.password_again.data:
-            return render_template('register.html', title='Регистрация',
-                                   form=form,
-                                   message="Пароли не совпадают")
         db_sess = db_session.create_session()
-        if db_sess.query(User).filter(
-                User.email == form.username.data).first():
-            return render_template('register.html', title='Регистрация',
-                                   form=form,
-                                   message="Такой пользователь уже есть")
-        user = User()
-        user.surname = form.surname.data,
-        user.name = form.name.data,
-        user.age = form.age.data,
-        user.position = form.position.data,
-        user.speciality = form.speciality.data,
-        user.address = form.address.data,
-        user.email = form.username.data
-        user.set_password(form.password.data)
-        db_sess.add(user)
+        dep = Department()
+        dep.title = form.title.data
+        dep.chief = form.chief.data
+        dep.members = form.members.data
+        dep.email = form.email.data
+        db_sess.add(dep)
         db_sess.commit()
-        return redirect('/register')
-    return render_template('register.html', title='Регистрация', form=form)
+        return redirect('/departments')
+    return render_template('department.html', title='Adding a Department',
+                           form=form)
+
+
+@app.route('/departments_delete/<int:id>', methods=['GET', 'POST'])
+@login_required
+def departments_delete(id):
+    db_sess = db_session.create_session()
+    dep = db_sess.query(Department).filter(Department.id == id, (
+            Department.user == current_user) | (current_user.id == 1)).first()
+    if dep:
+        db_sess.delete(dep)
+        db_sess.commit()
+    else:
+        abort(404)
+    return redirect('/departments')
+
+
+@app.route('/department/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit_department(id):
+    form = DepartmnetForm()
+    if request.method == "GET":
+        db_sess = db_session.create_session()
+        dep = db_sess.query(Department).filter(Department.id == id, (
+                Department.user == current_user) | (
+                                                       current_user.id == 1)).first()
+        if dep:
+            form.title.data = dep.title
+            form.email.data = dep.email
+            form.chief.data = dep.chief
+            form.members.data = dep.members
+        else:
+            abort(404)
+    if form.validate_on_submit():
+        db_sess = db_session.create_session()
+        dep = db_sess.query(Department).filter(Department.id == id, (
+                Department.user == current_user) | (
+                                                       current_user.id == 1)).first()
+        if dep:
+            dep.title = form.title.data
+            dep.email = form.email.data
+            dep.chief = form.chief.data
+            dep.members = form.members.data
+            db_sess.commit()
+            return redirect('/departments')
+        else:
+            abort(404)
+    return render_template('department.html', title='Edit department',
+                           form=form)
 
 
 if __name__ == '__main__':
