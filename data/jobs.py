@@ -19,6 +19,7 @@ class Jobs(SqlAlchemyBase):
     end_date = sqlalchemy.Column(sqlalchemy.Date, nullable=True)
     is_finished = sqlalchemy.Column(sqlalchemy.Boolean, nullable=True)
     user = orm.relation('User')
+    categories = orm.relation("Category", secondary="association", backref="jobs")
 
     def __repr__(self):
         return f'<Job> {self.job}'

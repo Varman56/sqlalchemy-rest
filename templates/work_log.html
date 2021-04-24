@@ -17,6 +17,7 @@
             <th>Team leader</th>
             <th>Duration</th>
             <th>List of collaborators</th>
+            <th>Hazard category</th>
             <th>Is finished</th>
         </tr>
         <tr>
@@ -24,6 +25,7 @@
             <td>{{ item.user.name }} {{ item.user.surname}}</td>
             <td>{{ item.work_size }}</td>
             <td>{{ item.collaborators }}</td>
+            <td>{{ item.categories[0].name }}</td>
             {% if item.is_finished %}
             <td>Is finished</td>
             {% else %}

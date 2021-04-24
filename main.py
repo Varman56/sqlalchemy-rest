@@ -7,6 +7,7 @@ from forms.add_user_form import RegisterForm
 from forms.login_form import LoginForm
 from forms.jobform import JobForm
 from forms.departmentform import DepartmnetForm
+from data.category import Category, association_table
 from flask_login import LoginManager, login_user, logout_user, login_required, \
     current_user
 
@@ -23,7 +24,7 @@ def load_user(user_id):
 
 
 def main():
-    db_session.global_init("db/blogs.db")
+    db_session.global_init("db/mars.db")
     app.run(port=8080, host='127.0.0.1')
 
 
@@ -75,14 +76,14 @@ def register():
             return render_template('register.html', title='Регистрация',
                                    form=form,
                                    message="Такой пользователь уже есть")
-        user = User()
-        user.surname = form.surname.data,
-        user.name = form.name.data,
-        user.age = form.age.data,
-        user.position = form.position.data,
-        user.speciality = form.speciality.data,
-        user.address = form.address.data,
-        user.email = form.username.data
+        user = User(
+            surname=form.surname.data,
+            name=form.name.data,
+            age=form.age.data,
+            position=form.position.data,
+            speciality=form.speciality.data,
+            address=form.address.data,
+            email=form.username.data)
         user.set_password(form.password.data)
         db_sess.add(user)
         db_sess.commit()
@@ -97,15 +98,24 @@ def add_job():
     if form.validate_on_submit():
         db_sess = db_session.create_session()
         job = Jobs()
+        cats = form.categories.data
+        cat = db_sess.query(Category).filter(Category.name == cats).first()
+        if not cat:
+            cat = Category()
+            cat.name = cats
+            db_sess.add(cat)
+            db_sess.commit()
+            cat = db_sess.query(Category).filter(Category.name == cats).first()
         job.team_leader = form.team_leader.data
         job.collaborators = form.collaborators.data
         job.work_size = form.work_size.data
         job.is_finished = form.is_finished.data
         job.job = form.job.data
+        job.categories = [cat]
         db_sess.add(job)
         db_sess.commit()
         return redirect('/')
-    return render_template('job.html', title='Adding a job', form=form)
+    return render_template('job.html', title='Adding a Job', form=form)
 
 
 @app.route('/jobs/<int:id>', methods=['GET', 'POST'])
@@ -131,16 +141,26 @@ def edit_job(id):
                                          (Jobs.user == current_user) | (
                                                  current_user.id == 1)).first()
         if job:
+            cats = form.categories.data
+            cat = db_sess.query(Category).filter(Category.name == cats).first()
+            if not cat:
+                cat = Category()
+                cat.name = cats
+                db_sess.add(cat)
+                db_sess.commit()
+                cat = db_sess.query(Category).filter(
+                    Category.name == cats).first()
             job.team_leader = form.team_leader.data
             job.collaborators = form.collaborators.data
             job.work_size = form.work_size.data
             job.is_finished = form.is_finished.data
             job.job = form.job.data
+            job.categories = [cat]
             db_sess.commit()
             return redirect('/')
         else:
             abort(404)
-    return render_template('job.html', title='Edit job', form=form)
+    return render_template('job.html', title='Edit Job', form=form)
 
 
 @app.route('/jobs_delete/<int:id>', methods=['GET', 'POST'])
@@ -151,6 +171,9 @@ def jobs_delete(id):
                                      (Jobs.user == current_user) | (
                                              current_user.id == 1)).first()
     if job:
+        cat = db_sess.query(Category).filter(
+            Category.name == job.categories[0].name).first()
+        job.categories.remove(cat)
         db_sess.delete(job)
         db_sess.commit()
     else:
@@ -232,7 +255,7 @@ def edit_department(id):
             return redirect('/departments')
         else:
             abort(404)
-    return render_template('department.html', title='Edit department',
+    return render_template('department.html', title='Edit Department',
                            form=form)
 
 
