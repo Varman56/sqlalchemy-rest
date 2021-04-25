@@ -11,6 +11,7 @@ class RegisterForm(FlaskForm):
     surname = StringField('Surname')
     name = StringField('Name')
     age = IntegerField('Age')
+    city_from = StringField('City')
     position = StringField('Position')
     speciality = StringField('Speciality')
     address = StringField('Address')

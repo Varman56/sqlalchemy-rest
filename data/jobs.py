@@ -1,10 +1,11 @@
 import sqlalchemy
+from sqlalchemy_serializer import SerializerMixin
 from .db_session import SqlAlchemyBase
 from datetime import datetime
 from sqlalchemy import orm
 
 
-class Jobs(SqlAlchemyBase):
+class Jobs(SqlAlchemyBase, SerializerMixin):
     __tablename__ = 'jobs'
 
     id = sqlalchemy.Column(sqlalchemy.Integer,
@@ -19,7 +20,8 @@ class Jobs(SqlAlchemyBase):
     end_date = sqlalchemy.Column(sqlalchemy.Date, nullable=True)
     is_finished = sqlalchemy.Column(sqlalchemy.Boolean, nullable=True)
     user = orm.relation('User')
-    categories = orm.relation("Category", secondary="association", backref="jobs")
+    categories = orm.relation("Category", secondary="association",
+                              backref="jobs")
 
     def __repr__(self):
         return f'<Job> {self.job}'

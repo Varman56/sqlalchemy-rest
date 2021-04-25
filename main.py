@@ -1,5 +1,5 @@
 from flask import Flask, render_template, redirect, request, abort
-from data import db_session
+from data import db_session, jobs_api, user_api
 from data.users import User
 from data.jobs import Jobs
 from data.departments import Department
@@ -7,9 +7,11 @@ from forms.add_user_form import RegisterForm
 from forms.login_form import LoginForm
 from forms.jobform import JobForm
 from forms.departmentform import DepartmnetForm
-from data.category import Category, association_table
+from data.category import Category
 from flask_login import LoginManager, login_user, logout_user, login_required, \
     current_user
+import requests
+from io import BytesIO
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'yandexlyceum_secret_key'
@@ -20,6 +22,8 @@ login_manager.init_app(app)
 @login_manager.user_loader
 def load_user(user_id):
     db_sess = db_session.create_session()
+    app.register_blueprint(jobs_api.blueprint)
+    app.register_blueprint(user_api.blueprint)
     return db_sess.query(User).get(user_id)
 
 
@@ -77,6 +81,7 @@ def register():
                                    form=form,
                                    message="Такой пользователь уже есть")
         user = User(
+            city_from=form.city_from.data,
             surname=form.surname.data,
             name=form.name.data,
             age=form.age.data,
@@ -133,6 +138,7 @@ def edit_job(id):
             form.work_size.data = job.work_size
             form.collaborators.data = job.collaborators
             form.is_finished.data = job.is_finished
+            form.categories.data = job.categories[0].name
         else:
             abort(404)
     if form.validate_on_submit():
@@ -171,9 +177,6 @@ def jobs_delete(id):
                                      (Jobs.user == current_user) | (
                                              current_user.id == 1)).first()
     if job:
-        cat = db_sess.query(Category).filter(
-            Category.name == job.categories[0].name).first()
-        job.categories.remove(cat)
         db_sess.delete(job)
         db_sess.commit()
     else:
@@ -257,6 +260,45 @@ def edit_department(id):
             abort(404)
     return render_template('department.html', title='Edit Department',
                            form=form)
+
+
+@app.route('/users_show/<int:user_id>')
+@login_required
+def users_show(user_id):
+    user = requests.get(f'http://localhost:8080/api/users/{user_id}').json()[
+        'users']
+    if 'error' in user:
+        abort(404)
+    geocoder_api_server = "http://geocode-maps.yandex.ru/1.x/"
+    geocoder_params = {
+        "apikey": "40d1649f-0493-4b70-98ba-98533de7710b",
+        "geocode": str(user['city_from']),
+        "format": "json"}
+    response = requests.get(geocoder_api_server, params=geocoder_params).json()
+    if not response:
+        abort(404)
+    toponym = response["response"]["GeoObjectCollection"][
+        "featureMember"][0]["GeoObject"]
+    toponym_coodrinates = toponym["Point"]["pos"]
+    toponym_longitude, toponym_lattitude = toponym_coodrinates.split(" ")
+    params = {"ll": ",".join([toponym_longitude, toponym_lattitude]),
+              'l': 'sat',
+              'z': 12
+              }
+    map_api_server = "http://static-maps.yandex.ru/1.x/"
+    response = requests.get(map_api_server, params=params)
+    if not response:
+        abort(404)
+
+    img = BytesIO(response.content)
+    with open(f'static/img/city.png', 'wb') as file:
+        file.write(img.read())
+    params = {
+        'title': 'Hometown',
+        'user': user
+
+    }
+    return render_template('users_show.html', **params)
 
 
 if __name__ == '__main__':
