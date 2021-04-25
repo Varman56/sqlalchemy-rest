@@ -265,10 +265,10 @@ def edit_department(id):
 @app.route('/users_show/<int:user_id>')
 @login_required
 def users_show(user_id):
-    user = requests.get(f'http://localhost:8080/api/users/{user_id}').json()[
-        'users']
+    user = requests.get(f'http://localhost:8080/api/users/{user_id}').json()
     if 'error' in user:
         abort(404)
+    user = user['users']
     geocoder_api_server = "http://geocode-maps.yandex.ru/1.x/"
     geocoder_params = {
         "apikey": "40d1649f-0493-4b70-98ba-98533de7710b",
